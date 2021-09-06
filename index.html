@@ -1,10 +1,20 @@
 <html>
     <body>
+        <h1>DFS Graph</h1>
+        <td colspan = "2"><b>Example Mazes</b>
+            <div class = "select-wrapper">
+                <select id="exampleMazes" name = "exampleMazes">
+                    <option value = "Maze1.png">Maze 1</option>
+                    <option value = "Maze2.png">Maze 2</option>
+                </select>
+            </div>
+        </td>
+
         <b>Upload Maze:</b> <input type = "file" id = "mazeInput"></td>
         <div id = "canvasContainer"></div>
         <script src="maze.js"></script>
         <script>
-            let maze = new Maze();
+            let maze = new Maze("canvasContainer");
         </script>
         
     </body>
