@@ -75,7 +75,6 @@ class Maze {
     }
 
     finalizeInput(image) {
-        console.log(image);
         this.image = image;
         let that = this;
         let canvas = document.createElement("canvas");
@@ -242,7 +241,11 @@ class Maze {
                         this.ctx.fillStyle = "gray";
                     }
 
-                    if (i == this.current[0] && j == this.current[1]) {
+                    if (i == this.goal[0] && j == this.goal[1] && this.reachedGoal) {
+                        toDraw = true;
+                        this.ctx.fillStyle = "red";
+                    }
+                    else if (i == this.current[0] && j == this.current[1]) {
                         toDraw = true;
                         this.ctx.fillStyle = "blue";
                     }
@@ -250,10 +253,7 @@ class Maze {
                         toDraw = true;
                         this.ctx.fillStyle = "cyan";
                     }
-                    else if (i == this.goal[0] && j == this.goal[1] && this.reachedGoal) {
-                        toDraw = true;
-                        this.ctx.fillStyle = "red";
-                    }
+
 
                     if (toDraw) {
                         this.ctx.fillRect(j*BLOCK_WIDTH, i*BLOCK_WIDTH, BLOCK_WIDTH, BLOCK_WIDTH);
@@ -312,6 +312,25 @@ class BFSDFS extends Maze {
         button.onclick = function() {
             that.animating = false;
         }
+        button = document.createElement("button");
+        button.innerHTML = "Reset";
+        this.mainContainer.appendChild(button);
+        button.onclick = this.reset.bind(this);
+    }
+
+    reset() {
+        this.steps = 0;
+        this.reachedGoal = false;
+        this.animating = false;
+        this.queue = [];
+        for (let i = 0; i < this.frontier.length; i++) {
+            for (let j = 0; j < this.frontier[i].length; j++) {
+                this.visited[i][j] = false;
+                this.frontier[i][j] = false;
+            }
+        }
+        this.finishMazeSetup();
+        this.repaint();
     }
 
     animate() {
@@ -326,10 +345,10 @@ class BFSDFS extends Maze {
     }
 
     finishMazeSetup() {
-        console.log("Finish maze setup");
         this.frontier[this.start[0]][this.start[1]] = true; 
         this.queue = [this.start];
         this.current = this.start;
+        this.next = [-1, -1];
         this.numExpanded = 0;
     }
 
