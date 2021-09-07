@@ -122,25 +122,31 @@ class Maze {
             reader.readAsArrayBuffer(mazeInput.files[0]);
         });
         let exampleMazeMenu = document.getElementById("exampleMazes");
-        exampleMazeMenu.addEventListener('change', function(e){
-            let image = new Image();
-            image.src = e.target.value;
-            image.onload = function() {
-                that.finalizeInput(image);
-            }
-        });
+        if (!(exampleMazeMenu === null)) {
+            exampleMazeMenu.addEventListener('change', function(e){
+                let image = new Image();
+                image.src = e.target.value;
+                image.onload = function() {
+                    that.finalizeInput(image);
+                }
+            });
+        }
     }
-
+    
     makeClick(e) {
         let evt = (e == null ? event:e);
         evt.preventDefault();
         let mousePos = getMousePos(this.canvas, evt);
         let j = Math.floor(mousePos.X/BLOCK_WIDTH);
         let i = Math.floor(mousePos.Y/BLOCK_WIDTH);
-        console.log(i, ",", j);
+        this.step();
         if (this.frontier[i][j]) {
             this.frontier[i][j] = false;
             this.visited[i][j] = true;
+            if (i == this.goal[0] && j == this.goal[1]) {
+                this.reachedGoal = true;
+                alert("Reached goal!");
+            }
             this.expandFrontier();
             this.repaint();
         }
@@ -225,9 +231,11 @@ class Maze {
 
 }
 
-class BFSTree extends Maze {
-    constructor(domLoc) {
+class BFSDFS extends Maze {
+    constructor(domLoc, bfs, tree) {
         super(domLoc);
+        this.bfs = bfs;
+        this.tree = tree;
         this.queue = [];
         let button = document.createElement("button");
         button.innerHTML = "step";
@@ -235,13 +243,8 @@ class BFSTree extends Maze {
         button.onclick = this.step.bind(this);
     }
 
-    setupMouseListeners() {
-        // Override this with a dummy, since we don't want mouse interaction here
-    }
-
     finishMazeSetup() {
-        // There is no such thing as visited in tree search
-        this.visited[this.start[0]][this.start[1]] = false; 
+        this.frontier[this.start[0]][this.start[1]] = true; 
         this.queue = [this.start];
         this.current = this.start;
     }
@@ -249,29 +252,43 @@ class BFSTree extends Maze {
     step() {
         // Remove first element from frontier
         if (this.queue.length > 0 && !this.reachedGoal) {
-            let state = this.queue.shift();
-            this.current = state;
-            this.frontier[state[0]][state[1]] = false;
-            if (state[0] == this.goal[0] && state[1] == this.goal[1]) {
-                this.reachedGoal = true;
+            let s = null;
+            if (this.bfs) { // BFS FIFO
+                s = this.queue.shift();
+            }
+            else { // DFS LIFO
+                s = this.queue.pop();
+            }
+            this.current = [s[0], s[1]];
+            if (!this.tree) {
+                // For graph search, remember 
+                this.visited[s[0]][s[1]] = true;
+                this.frontier[s[0]][s[1]] = false;
             }
             else {
-                // Visit all neighbors, regardless of if they have been visited before
-                let neighbs = this.getNeighbors(state[0], state[1]);
-                for (let k = 0; k < neighbs.length; k++) {
-                    let n = neighbs[k];
-                    this.queue.push(n);
+                // Check to see if it's still on the frontier (TODO: This is very inefficient)
+                let stillOn = false;
+                for (let i = 0; i < this.queue.length; i++) {
+                    if (this.queue[i][0] == s[0] && this.queue[i][1] == s[1]) {
+                        stillOn = true;
+                        break;
+                    }
+                }
+                if (!stillOn) {
+                    this.frontier[s[0]][s[1]] = false;
+                }
+            }
+            let neighbs = this.getNeighbors(s[0], s[1]);
+            for (let k = 0; k < neighbs.length; k++) {
+                let n = neighbs[k];
+                if (!this.visited[n[0]][n[1]] && !this.frontier[n[0]][n[1]]) {
                     this.frontier[n[0]][n[1]] = true;
+                    this.queue.push([n[0], n[1]]);
                 }
             }
             if (this.queue.length > 0) {
-                this.next = this.queue[0];
+                this.next = [this.queue[0][0], this.queue[0][1]];
             }
-            else {
-                this.next = [-1, -1];
-            }
-            super.step();
-            this.stepsDisp.innerHTML += ", " + this.queue.length + " items on queue";
             this.repaint();
         }
         else {
@@ -279,160 +296,3 @@ class BFSTree extends Maze {
         }
     }
 }
-
-
-class BFSGraph extends BFSTree {
-    constructor(domLoc) {
-        super(domLoc);
-    }
-
-    finishMazeSetup() {
-        this.visited[this.start[0]][this.start[1]] = true; 
-        this.queue = [this.start];
-        this.current = this.start;
-    }
-
-    step() {
-        // Remove first element from frontier
-        if (this.queue.length > 0 && !this.reachedGoal) {
-            let state = this.queue.shift();
-            this.current = state;
-            this.frontier[state[0]][state[1]] = false;
-            this.visited[state[0]][state[1]] = true;
-            if (state[0] == this.goal[0] && state[1] == this.goal[1]) {
-                this.reachedGoal = true;
-            }
-            else {
-                // Visit all neighbors, regardless of if they have been visited before
-                let neighbs = this.getNeighbors(state[0], state[1]);
-                for (let k = 0; k < neighbs.length; k++) {
-                    let n = neighbs[k];
-                    if (!this.visited[n[0]][n[1]]) {
-                        this.queue.push(n);
-                        this.frontier[n[0]][n[1]] = true;
-                    }
-                }
-            }
-            if (this.queue.length > 0) {
-                this.next = this.queue[0];
-            }
-            else {
-                this.next = [-1, -1];
-            }
-            super.step();
-            this.stepsDisp.innerHTML += ", " + this.queue.length + " items on queue";
-            this.repaint();
-        }
-        else {
-            alert("You already found the goal!");
-        }
-    }
-}
-
-
-
-
-class DFSTree extends Maze {
-    constructor(domLoc) {
-        super(domLoc);
-        this.stack = [];
-        let button = document.createElement("button");
-        button.innerHTML = "step";
-        this.container.appendChild(button);
-        button.onclick = this.step.bind(this);
-    }
-
-    setupMouseListeners() {
-        // Override this with a dummy, since we don't want mouse interaction here
-    }
-
-    finishMazeSetup() {
-        // There is no such thing as visited in tree search
-        this.visited[this.start[0]][this.start[1]] = false; 
-        this.stack = [this.start];
-        this.current = this.start;
-    }
-
-    step() {
-        // Remove first element from frontier
-        if (this.stack.length > 0 && !this.reachedGoal) {
-            let state = this.stack.pop();
-            this.current = state;
-            this.frontier[state[0]][state[1]] = false;
-            if (state[0] == this.goal[0] && state[1] == this.goal[1]) {
-                this.reachedGoal = true;
-            }
-            else {
-                // Visit all neighbors, regardless of if they have been visited before
-                let neighbs = this.getNeighbors(state[0], state[1]);
-                for (let k = 0; k < neighbs.length; k++) {
-                    let n = neighbs[k];
-                    this.stack.push(n);
-                    this.frontier[n[0]][n[1]] = true;
-                }
-            }
-            if (this.stack.length > 0) {
-                this.next = this.stack[0];
-            }
-            else {
-                this.next = [-1, -1];
-            }
-            super.step();
-            this.stepsDisp.innerHTML += ", " + this.stack.length + " items on stack";
-            this.repaint();
-        }
-        else {
-            alert("You already found the goal!");
-        }
-    }
-}
-
-
-class DFSGraph extends DFSTree {
-    constructor(domLoc) {
-        super(domLoc);
-    }
-
-    finishMazeSetup() {
-        this.visited[this.start[0]][this.start[1]] = true; 
-        this.stack = [this.start];
-        this.current = this.start;
-    }
-
-    step() {
-        // Remove first element from frontier
-        if (this.stack.length > 0 && !this.reachedGoal) {
-            let state = this.stack.pop();
-            this.current = state;
-            this.frontier[state[0]][state[1]] = false;
-            this.visited[state[0]][state[1]] = true;
-            if (state[0] == this.goal[0] && state[1] == this.goal[1]) {
-                this.reachedGoal = true;
-            }
-            else {
-                // Visit all neighbors, regardless of if they have been visited before
-                let neighbs = this.getNeighbors(state[0], state[1]);
-                for (let k = 0; k < neighbs.length; k++) {
-                    let n = neighbs[k];
-                    if (!this.visited[n[0]][n[1]]) {
-                        this.stack.push(n);
-                        this.frontier[n[0]][n[1]] = true;
-                    }
-                }
-            }
-            if (this.stack.length > 0) {
-                this.next = this.stack[0];
-            }
-            else {
-                this.next = [-1, -1];
-            }
-            super.step();
-            this.stepsDisp.innerHTML += ", " + this.stack.length + " items on stack";
-            this.repaint();
-        }
-        else {
-            alert("You already found the goal!");
-        }
-    }
-}
-
