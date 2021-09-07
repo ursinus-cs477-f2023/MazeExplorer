@@ -1,14 +1,36 @@
 <html>
+    <head>
+        <link rel="stylesheet" href="style.css" />
+        <meta charset="utf-8" />
+    </head>
     <body>
-        <h1>Maze Demos</h1>
-
+        <h1>Maze Demos of Classical AI Search</h1>
+        <h2><a href = "http://www.ctralie.com">Chris Tralie</a></h2>
+        <p>
+            Below is a demo of classical AI search algorithms applied to a pixel graph.  The coloring scheme is as follows:
+            <ul>
+                <li>
+                    Explored pixels are drawn in white
+                </li>
+                <li>
+                    Pixels on the frontier are drawn in grey
+                </li>
+                <li>
+                    The goal pixel is drawn in red
+                </li>
+                <li>For automated algorithms (DFS, BFS, etc), the current pixel drawn in blue</li>
+                <li>For automated algorithms, the next state to be expanded is shown in cyan</li>
+            </ul>
+        </p>
+        <p>
+            There are a few example mazes built in.  If you want to make your own, create a PNG image with white pixels for areas that are open, black pixels for areas that are closed, a pure blue (0, 0, 255) pixel for the start state, and a pure red (255, 0, 0) pixel for the goal state.
+        </p>
         <table>
             <tr>
                 <td  style="padding: 10px;">
                     <b>Search Type</b>
                     <select id="searchType" name = "searchType">
-                        <option disabled selected value> -- select an option -- </option>
-                        <option value = "manual">Manual</option>
+                        <option value = "manual">Manual Clicking</option>
                         <option value = "bfstree">BFS Tree</option>
                         <option value = "dfstree">DFS Tree</option>
                         <option value = "bfsgraph">BFS Graph</option>
@@ -34,7 +56,7 @@
         <div id = "canvasContainer"></div>
         <script src="maze.js"></script>
         <script>
-            let maze = null;
+            let maze = new Maze("canvasContainer");
             let typeInput = document.getElementById("searchType");
             typeInput.addEventListener('change', function(e){
                 let image = null;
