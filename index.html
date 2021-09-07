@@ -1,21 +1,67 @@
 <html>
     <body>
-        <h1>DFS Graph</h1>
-        <td colspan = "2"><b>Example Mazes</b>
-            <div class = "select-wrapper">
-                <select id="exampleMazes" name = "exampleMazes">
-                    <option value = "Maze1.png">Maze 1</option>
-                    <option value = "Maze2.png">Maze 2</option>
-                </select>
-            </div>
-        </td>
+        <h1>Maze Demos</h1>
 
-        <b>Upload Maze:</b> <input type = "file" id = "mazeInput"></td>
+        <table>
+            <tr>
+                <td  style="padding: 10px;">
+                    <b>Search Type</b>
+                    <select id="searchType" name = "searchType">
+                        <option disabled selected value> -- select an option -- </option>
+                        <option value = "manual">Manual</option>
+                        <option value = "bfstree">BFS Tree</option>
+                        <option value = "dfstree">DFS Tree</option>
+                        <option value = "bfsgraph">BFS Graph</option>
+                        <option value = "dfsgraph">DFS Graph</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=2  style="padding: 10px;">        
+                    <b>Example Mazes</b>
+                    <select id="exampleMazes" name = "exampleMazes">
+                        <option disabled selected value> -- select an option -- </option>
+                        <option value = "Maze1.png">Maze 1</option>
+                        <option value = "Maze2.png">Maze 2</option>
+                    </select>
+                </td>
+                <td  style="padding: 10px;">
+                    <b>Upload Maze:</b> <input type = "file" id = "mazeInput"></td>
+                </td>
+            </tr>
+        </table>
+
         <div id = "canvasContainer"></div>
         <script src="maze.js"></script>
         <script>
-            let maze = new Maze("canvasContainer");
+            let maze = null;
+            let typeInput = document.getElementById("searchType");
+            typeInput.addEventListener('change', function(e){
+                let image = null;
+                if (!(maze === null)) {
+                    image = maze.image;
+                    maze.animating = false;
+                }
+                if (e.target.value == "manual") {
+                    maze = new Maze("canvasContainer", image);
+                }
+                else if (e.target.value == "bfstree") {
+                    maze = new BFSDFS("canvasContainer", image, true, true);
+                }
+                else if (e.target.value == "bfsgraph") {
+                    maze = new BFSDFS("canvasContainer", image, true, false);
+                }
+                else if (e.target.value == "dfstree") {
+                    maze = new BFSDFS("canvasContainer", image, false, true);
+                }
+                else if (e.target.value == "dfsgraph") {
+                    maze = new BFSDFS("canvasContainer", image, false, false);
+                }
+            });
+            
         </script>
+
+
         
     </body>
 </html>

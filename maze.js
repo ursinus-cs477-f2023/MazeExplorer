@@ -24,8 +24,9 @@ class Maze {
     /**
      * 
      * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
      */
-    constructor(domLoc) {
+    constructor(domLoc, image) {
         this.I = [];
         this.visited = [];
         this.frontier = [];
@@ -34,9 +35,12 @@ class Maze {
         this.current = [-1, -1];
         this.next = [-1, -1];
         this.container = document.getElementById(domLoc);
+        this.container.innerHTML = "";
+        this.mainContainer = document.createElement("div");
+        this.container.appendChild(this.mainContainer);
         this.stepsDisp = document.createElement("p");
         this.stepsDisp.innerHTML = "0 Steps";
-        this.container.append(this.stepsDisp);
+        this.mainContainer.append(this.stepsDisp);
         this.canvasContainer = document.createElement("div");
         this.container.appendChild(this.canvasContainer);
         this.canvas = null;
@@ -44,6 +48,9 @@ class Maze {
         this.steps = 0;
         this.reachedGoal = false;
         this.setupInput();
+        if (!(image === null) && !(image === undefined)) {
+            this.finalizeInput(image);
+        }
     }
 
     step() {
@@ -58,6 +65,7 @@ class Maze {
     }
 
     finalizeInput(image) {
+        this.image = image;
         let that = this;
         let canvas = document.createElement("canvas");
         let context = canvas.getContext("2d");
@@ -93,6 +101,7 @@ class Maze {
         }
         // Setup new canvas
         that.canvasContainer.innerHTML = "";
+        that.canvasContainer.appendChild(document.createElement("hr"));
         that.canvas = document.createElement("canvas");
         that.canvasContainer.appendChild(that.canvas);
         that.ctx = that.canvas.getContext("2d");
@@ -192,7 +201,6 @@ class Maze {
     }
 
     repaint() {
-        console.log("Repainting");
         if (!(this.ctx === null)) {
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -232,18 +240,65 @@ class Maze {
 }
 
 class BFSDFS extends Maze {
-    constructor(domLoc, bfs, tree) {
-        super(domLoc);
+    /**
+     * 
+     * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
+     * @param {boolean} bfs If true, do BFS.  If false, do DFS
+     * @param {boolean} tree If true, do tree search.  If false, do graph search
+     */
+    constructor(domLoc, image, bfs, tree) {
+        super(domLoc, image);
+        const that = this;
         this.bfs = bfs;
         this.tree = tree;
-        this.queue = [];
+        if (image === undefined || image === null) {
+            this.queue = [];
+        }
         let button = document.createElement("button");
-        button.innerHTML = "step";
-        this.container.appendChild(button);
+        button.innerHTML = "Manual Step";
+        this.mainContainer.appendChild(button);
         button.onclick = this.step.bind(this);
+        // Setup animation buttons
+        button = document.createElement("button");
+        button.innerHTML = "Animate Slow";
+        this.mainContainer.appendChild(button);
+        this.animInterval = 100;
+        this.animating = false;
+        button.onclick = function() {
+            that.animating = true;
+            that.animInterval = 100;
+            that.animate();
+        }
+        button = document.createElement("button");
+        button.innerHTML = "Animate Fast";
+        this.mainContainer.appendChild(button);
+        button.onclick = function() {
+            that.animating = true;
+            that.animInterval = 10;
+            that.animate();
+        }
+        button = document.createElement("button");
+        button.innerHTML = "Stop Animation";
+        this.mainContainer.appendChild(button);
+        button.onclick = function() {
+            that.animating = false;
+        }
+    }
+
+    animate() {
+        if (!this.reachedGoal && this.queue.length > 0 && this.animating) {
+            this.step();
+            this.repaint();
+            if (this.reachedGoal) {
+                this.animating = false;
+            }
+            setTimeout(this.animate.bind(this), this.animInterval);
+        }
     }
 
     finishMazeSetup() {
+        console.log("Finish maze setup");
         this.frontier[this.start[0]][this.start[1]] = true; 
         this.queue = [this.start];
         this.current = this.start;
@@ -259,35 +314,40 @@ class BFSDFS extends Maze {
             else { // DFS LIFO
                 s = this.queue.pop();
             }
-            this.current = [s[0], s[1]];
-            if (!this.tree) {
-                // For graph search, remember 
-                this.visited[s[0]][s[1]] = true;
-                this.frontier[s[0]][s[1]] = false;
+            if (s[0] == this.goal[0] && s[1] == this.goal[1]) {
+                this.reachedGoal = true;
             }
             else {
-                // Check to see if it's still on the frontier (TODO: This is very inefficient)
-                let stillOn = false;
-                for (let i = 0; i < this.queue.length; i++) {
-                    if (this.queue[i][0] == s[0] && this.queue[i][1] == s[1]) {
-                        stillOn = true;
-                        break;
-                    }
-                }
-                if (!stillOn) {
+                this.current = [s[0], s[1]];
+                if (!this.tree) {
+                    // For graph search, remember 
+                    this.visited[s[0]][s[1]] = true;
                     this.frontier[s[0]][s[1]] = false;
                 }
-            }
-            let neighbs = this.getNeighbors(s[0], s[1]);
-            for (let k = 0; k < neighbs.length; k++) {
-                let n = neighbs[k];
-                if (!this.visited[n[0]][n[1]] && !this.frontier[n[0]][n[1]]) {
-                    this.frontier[n[0]][n[1]] = true;
-                    this.queue.push([n[0], n[1]]);
+                else {
+                    // Check to see if it's still on the frontier (TODO: This is very inefficient)
+                    let stillOn = false;
+                    for (let i = 0; i < this.queue.length; i++) {
+                        if (this.queue[i][0] == s[0] && this.queue[i][1] == s[1]) {
+                            stillOn = true;
+                            break;
+                        }
+                    }
+                    if (!stillOn) {
+                        this.frontier[s[0]][s[1]] = false;
+                    }
                 }
-            }
-            if (this.queue.length > 0) {
-                this.next = [this.queue[0][0], this.queue[0][1]];
+                let neighbs = this.getNeighbors(s[0], s[1]);
+                for (let k = 0; k < neighbs.length; k++) {
+                    let n = neighbs[k];
+                    if (!this.visited[n[0]][n[1]] && !this.frontier[n[0]][n[1]]) {
+                        this.frontier[n[0]][n[1]] = true;
+                        this.queue.push([n[0], n[1]]);
+                    }
+                }
+                if (this.queue.length > 0) {
+                    this.next = [this.queue[0][0], this.queue[0][1]];
+                }
             }
             this.repaint();
         }
