@@ -25,8 +25,18 @@ class Maze {
      * 
      * @param {string} domLoc ID of DOM element in which to place this canvas
      * @param {Image} image An image of a maze to load
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
      */
-    constructor(domLoc, image) {
+    constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
+        if (mazeInputStr === undefined) {
+            mazeInputStr = "mazeInput";
+        }
+        if (exampleMazeStr === undefined) {
+            exampleMazeStr = "exampleMazes";
+        }
+        this.mazeInputStr = mazeInputStr;
+        this.exampleMazeStr = exampleMazeStr;
         this.I = [];
         this.visited = [];
         this.frontier = [];
@@ -65,6 +75,7 @@ class Maze {
     }
 
     finalizeInput(image) {
+        console.log(image);
         this.image = image;
         let that = this;
         let canvas = document.createElement("canvas");
@@ -114,23 +125,25 @@ class Maze {
 
     setupInput() {
         const that = this;
-        let mazeInput = document.getElementById('mazeInput');
-        mazeInput.addEventListener('change', function(e) {
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                let arrayBufferView = new Uint8Array(e.target.result);
-                let blob = new Blob([arrayBufferView], {type: mazeInput.files[0].type});
-                let urlCreator = window.URL || window.webkitURL;
-                let imageUrl = urlCreator.createObjectURL(blob);
-                let image = new Image();
-                image.src = imageUrl;
-                image.onload = function() {
-                    that.finalizeInput(image);
+        let mazeInput = document.getElementById(this.mazeInputStr);
+        if (!(mazeInput === null)) {
+            mazeInput.addEventListener('change', function(e) {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let arrayBufferView = new Uint8Array(e.target.result);
+                    let blob = new Blob([arrayBufferView], {type: mazeInput.files[0].type});
+                    let urlCreator = window.URL || window.webkitURL;
+                    let imageUrl = urlCreator.createObjectURL(blob);
+                    let image = new Image();
+                    image.src = imageUrl;
+                    image.onload = function() {
+                        that.finalizeInput(image);
+                    }
                 }
-            }
-            reader.readAsArrayBuffer(mazeInput.files[0]);
-        });
-        let exampleMazeMenu = document.getElementById("exampleMazes");
+                reader.readAsArrayBuffer(mazeInput.files[0]);
+            });
+        }
+        let exampleMazeMenu = document.getElementById(this.exampleMazeStr);
         if (!(exampleMazeMenu === null)) {
             exampleMazeMenu.addEventListener('change', function(e){
                 let image = new Image();
@@ -141,6 +154,19 @@ class Maze {
             });
         }
     }
+
+    /**
+     * Load a particular maze from a path
+     * @param {string} path Path to maze image
+     */
+    loadMaze(path) {
+        const that = this;
+        let image = new Image();
+        image.src = path;
+        image.onload = function() {
+            that.finalizeInput(image);
+        };
+    }
     
     makeClick(e) {
         let evt = (e == null ? event:e);
@@ -148,8 +174,8 @@ class Maze {
         let mousePos = getMousePos(this.canvas, evt);
         let j = Math.floor(mousePos.X/BLOCK_WIDTH);
         let i = Math.floor(mousePos.Y/BLOCK_WIDTH);
-        this.step();
         if (this.frontier[i][j]) {
+            this.step();
             this.frontier[i][j] = false;
             this.visited[i][j] = true;
             if (i == this.goal[0] && j == this.goal[1]) {
@@ -246,9 +272,11 @@ class BFSDFS extends Maze {
      * @param {Image} image An image of a maze to load
      * @param {boolean} bfs If true, do BFS.  If false, do DFS
      * @param {boolean} tree If true, do tree search.  If false, do graph search
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
      */
-    constructor(domLoc, image, bfs, tree) {
-        super(domLoc, image);
+    constructor(domLoc, image, bfs, tree, mazeInputStr, exampleMazeStr) {
+        super(domLoc, image, mazeInputStr, exampleMazeStr);
         const that = this;
         this.bfs = bfs;
         this.tree = tree;
@@ -302,6 +330,7 @@ class BFSDFS extends Maze {
         this.frontier[this.start[0]][this.start[1]] = true; 
         this.queue = [this.start];
         this.current = this.start;
+        this.numExpanded = 0;
     }
 
     step() {
@@ -343,11 +372,21 @@ class BFSDFS extends Maze {
                     if (!this.visited[n[0]][n[1]] && !this.frontier[n[0]][n[1]]) {
                         this.frontier[n[0]][n[1]] = true;
                         this.queue.push([n[0], n[1]]);
+                        this.numExpanded++;
                     }
                 }
                 if (this.queue.length > 0) {
                     this.next = [this.queue[0][0], this.queue[0][1]];
                 }
+                super.step();
+                this.stepsDisp.innerHTML += ", " + this.queue.length + " nodes on ";
+                if (this.bfs) {
+                    this.stepsDisp.innerHTML += "queue";
+                }
+                else {
+                    this.stepsDisp.innerHTML += "stack";
+                }
+                this.stepsDisp.innerHTML += ", " + this.numExpanded + " nodes expanded";
             }
             this.repaint();
         }
