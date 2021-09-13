@@ -33,6 +33,7 @@
                         <option value = "manual">Manual Clicking</option>
                         <option value = "bfstree">BFS Tree</option>
                         <option value = "dfstree">DFS Tree</option>
+                        <option value = "dfstreepath">DFS Tree Path Check</option>
                         <option value = "bfsgraph">BFS Graph</option>
                         <option value = "dfsgraph">DFS Graph</option>
                     </select>
@@ -45,6 +46,7 @@
                         <option disabled selected value> -- select an option -- </option>
                         <option value = "Maze1.png">Maze 1</option>
                         <option value = "Maze2.png">Maze 2</option>
+                        <option value = "Maze3.png">Maze 3</option>
                     </select>
                 </td>
                 <td  style="padding: 10px;">
@@ -75,6 +77,9 @@
                 }
                 else if (e.target.value == "dfstree") {
                     maze = new BFSDFS("canvasContainer", image, false, true);
+                }
+                else if (e.target.value == "dfstreepath") {
+                    maze = new BFSDFS("canvasContainer", image, false, true, "mazeInput", "exampleMazes", true);
                 }
                 else if (e.target.value == "dfsgraph") {
                     maze = new BFSDFS("canvasContainer", image, false, false);

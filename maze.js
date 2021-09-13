@@ -109,6 +109,8 @@ class Maze {
                 }
             }
         }
+        this.steps = 0;
+        this.reachedGoal = false;
         // Setup new canvas
         that.canvasContainer.innerHTML = "";
         that.canvasContainer.appendChild(document.createElement("hr"));
@@ -274,10 +276,21 @@ class BFSDFS extends Maze {
      * @param {boolean} tree If true, do tree search.  If false, do graph search
      * @param {string} mazeInputStr ID of maze input menu
      * @param {string} exampleMazeStr ID of example maze input
+     * @param {boolean} checkPathToStart Whether to check the path to the start before adding
+     *                            something to the frontier
+     * @param {int} maxDepth Max depth to search
      */
-    constructor(domLoc, image, bfs, tree, mazeInputStr, exampleMazeStr) {
+    constructor(domLoc, image, bfs, tree, mazeInputStr, exampleMazeStr, checkPathToStart, maxDepth) {
         super(domLoc, image, mazeInputStr, exampleMazeStr);
         const that = this;
+        if (checkPathToStart === undefined) {
+            checkPathToStart = false;
+        }
+        this.checkPathToStart = checkPathToStart;
+        if (maxDepth === undefined) {
+            maxDepth = Infinity;
+        }
+        this.maxDepth = maxDepth;
         this.bfs = bfs;
         this.tree = tree;
         if (image === undefined || image === null) {
@@ -316,6 +329,21 @@ class BFSDFS extends Maze {
         button.innerHTML = "Reset";
         this.mainContainer.appendChild(button);
         button.onclick = this.reset.bind(this);
+
+        // Depth limit input
+        this.depthInput = document.createElement("input");
+        this.depthInput.setAttribute("type", "text");
+        this.depthInput.setAttribute("name", "depthInput");
+        this.depthInput.value = maxDepth;
+        this.depthInput.addEventListener("input", function() {
+            that.maxDepth = parseInt(that.depthInput.value);
+        })
+        let label = document.createElement("label");
+        label.setAttribute("for", "depthInput");
+        label.innerHTML = "Maximum Depth ";
+        this.mainContainer.appendChild(document.createElement("hr"));
+        this.mainContainer.appendChild(label);
+        this.mainContainer.appendChild(this.depthInput);
     }
 
     reset() {
@@ -346,7 +374,11 @@ class BFSDFS extends Maze {
 
     finishMazeSetup() {
         this.frontier[this.start[0]][this.start[1]] = true; 
-        this.queue = [this.start];
+        // TODO: Using pointers would be much more efficient than storing paths explicitly,
+        // but I was getting lots of bugs when trying to do that
+        let startNode = {"pos":[this.start[0], this.start[1]], "path":[this.start[0], this.start[1]], "depth":0};
+        this.queue =  [startNode];
+        this.startNode = startNode;
         this.current = this.start;
         this.next = [-1, -1];
         this.numExpanded = 0;
@@ -362,40 +394,61 @@ class BFSDFS extends Maze {
             else { // DFS LIFO
                 s = this.queue.pop();
             }
-            if (s[0] == this.goal[0] && s[1] == this.goal[1]) {
+            if (s.pos[0] == this.goal[0] && s.pos[1] == this.goal[1]) {
                 this.reachedGoal = true;
             }
             else {
-                this.current = [s[0], s[1]];
+                this.current = [s.pos[0], s.pos[1]];
                 if (!this.tree) {
                     // For graph search, remember 
-                    this.visited[s[0]][s[1]] = true;
-                    this.frontier[s[0]][s[1]] = false;
+                    this.visited[s.pos[0]][s.pos[1]] = true;
+                    this.frontier[s.pos[0]][s.pos[1]] = false;
                 }
                 else {
                     // Check to see if it's still on the frontier (TODO: This is very inefficient)
                     let stillOn = false;
                     for (let i = 0; i < this.queue.length; i++) {
-                        if (this.queue[i][0] == s[0] && this.queue[i][1] == s[1]) {
+                        if (this.queue[i].pos[0] == s.pos[0] && this.queue[i].pos[1] == s.pos[1]) {
                             stillOn = true;
                             break;
                         }
                     }
                     if (!stillOn) {
-                        this.frontier[s[0]][s[1]] = false;
+                        this.frontier[s.pos[0]][s.pos[1]] = false;
                     }
                 }
-                let neighbs = this.getNeighbors(s[0], s[1]);
+                let neighbs = this.getNeighbors(s.pos[0], s.pos[1]);
+                let depth = s.depth+1;
                 for (let k = 0; k < neighbs.length; k++) {
                     let n = neighbs[k];
                     if (!this.visited[n[0]][n[1]] && !this.frontier[n[0]][n[1]]) {
-                        this.frontier[n[0]][n[1]] = true;
-                        this.queue.push([n[0], n[1]]);
-                        this.numExpanded++;
+                        if (depth <= this.maxDepth) {
+                            let pathClear = true;
+                            if (this.checkPathToStart) {
+                                for (let k = 0; k < s.path.length; k++) {
+                                    if (n[0] == s.path[k][0] && n[1] == s.path[k][1]) {
+                                        pathClear = false;
+                                    }
+                                }
+                            }
+                            if (pathClear) {
+                                this.frontier[n[0]][n[1]] = true;
+                                let path = [];
+                                if (this.checkPathToStart) {
+                                    // Keep track of paths if we're checking them
+                                    for (let k = 0; k < s.path.length; k++) {
+                                        path.push([s.path[k][0], s.path[k][1]]);
+                                    }
+                                }
+                                path.push([n[0], n[1]]);
+                                this.queue.push({"pos":[n[0], n[1]], "path":path, "depth":depth});
+                                this.numExpanded++;
+                            }
+                        }
                     }
                 }
                 if (this.queue.length > 0) {
-                    this.next = [this.queue[0][0], this.queue[0][1]];
+                    this.next = [this.queue[0].pos[0], this.queue[0].pos[1]];
                 }
                 super.step();
                 this.stepsDisp.innerHTML += ", " + this.queue.length + " nodes on ";
