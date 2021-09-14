@@ -618,7 +618,7 @@ class UniformCost extends BFSDFS {
 
     getNeighbors(i, j, fourNeighbors) {
         let neighbs = super.getNeighbors(i, j, fourNeighbors);
-        // Also compute the distance of each neighbor
+        // Also compute the distance of each neighbor to this pixel
         for (let k = 0; k < neighbs.length; k++) {
             let n = neighbs[k];
             const dx = n[0] - i;
@@ -628,17 +628,18 @@ class UniformCost extends BFSDFS {
         }
         return neighbs;
     }
-    
+
     finishMazeSetup() {
         this.frontier[this.start[0]][this.start[1]] = true; 
         this.visited[this.start[0]][this.start[1]] = false;
         this.queue = new TinyQueue([], function(a, b) {
             return a.cost - b.cost;
         });
-        this.queue.push({"pos":[this.start[0], this.start[1]], "cost":0});
+        this.queue.push({"pos":[this.start[0], this.start[1]], "cost":0, "path":[[this.start[0], this.start[1]]]});
         this.current = this.start;
         this.next = [-1, -1];
         this.numExpanded = 0;
+        this.foundPath = [];
     }
 
     step() {
@@ -649,9 +650,12 @@ class UniformCost extends BFSDFS {
             console.log(this.visited[s.pos[0]][s.pos[1]]);
             if (s.pos[0] == this.goal[0] && s.pos[1] == this.goal[1]) {
                 this.reachedGoal = true;
+                this.foundPath = s.path;
+                this.stepsDisp.innerHTML += ", found path has " + s.path.length + " steps";
             }
             // If we haven't seen this state yet with a shorter path
             else if (!(this.visited[s.pos[0]][s.pos[1]])) {  
+                this.numExpanded += 1;
                 this.current = [s.pos[0], s.pos[1]];
                 // For graph search, remember 
                 this.visited[s.pos[0]][s.pos[1]] = true;
@@ -662,7 +666,12 @@ class UniformCost extends BFSDFS {
                     let n = neighbs[k];
                     if (!this.visited[n.pos[0]][n.pos[1]]) {
                         this.frontier[n.pos[0]][n.pos[1]] = true;
-                        this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":cost+n.dist});
+                        let path = [];
+                        for (let k = 0; k < s.path.length; k++) {
+                            path.push([s.path[k][0], s.path[k][1]]);
+                        }
+                        path.push([n.pos[0], n.pos[1]]);
+                        this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":cost+n.dist, "path":path});
                     }
                 }
                 if (this.queue.length > 0) {
@@ -683,6 +692,150 @@ class UniformCost extends BFSDFS {
         }
         else {
             alert("You already found the goal!");
+        }
+    }
+
+    repaint() {
+        super.repaint();
+        this.ctx.fillStyle = "green";
+        for (let i = 0; i < this.foundPath.length; i++) {
+            const p = this.foundPath[i];
+            if ((p[0] != this.start[0] || p[1] != this.start[1]) && (p[0] != this.goal[0] || p[1] != this.goal[1])) {
+                this.ctx.fillRect(p[1]*BLOCK_WIDTH, p[0]*BLOCK_WIDTH, BLOCK_WIDTH, BLOCK_WIDTH);
+            }
+        }
+    }
+}
+
+
+// This assumes that tinyqueue has been imported
+class GreedyBestFirst extends BFSDFS {
+    /**
+     * 
+     * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
+     */
+     constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
+        super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
+        this.displayGoal = true; // Always display goal
+
+        this.rememberInput = document.createElement("input");
+        this.rememberInput.setAttribute("type", "checkbox");
+        this.rememberInput.setAttribute("name", "rememberInput");
+        this.rememberInput.setAttribute("id", "rememberInput");
+        this.rememberInput.checked = false;
+        let label = document.createElement("label");
+        label.setAttribute("for", "rememberInput");
+        label.innerHTML = "Remember Visited";
+        this.mainContainer.appendChild(document.createElement("hr"));
+        this.mainContainer.appendChild(label);
+        this.mainContainer.appendChild(this.rememberInput);
+    }
+
+    getNeighbors(i, j, fourNeighbors) {
+        let neighbs = super.getNeighbors(i, j, fourNeighbors);
+        // Also compute the distance of each neighbor to the goal
+        for (let k = 0; k < neighbs.length; k++) {
+            let n = neighbs[k];
+            const dx = n[0] - this.goal[0];
+            const dy = n[1] - this.goal[1];
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            neighbs[k] = {"pos":n, "dist":dist};
+        }
+        return neighbs;
+    }
+    
+    finishMazeSetup() {
+        this.frontier[this.start[0]][this.start[1]] = true; 
+        this.visited[this.start[0]][this.start[1]] = false;
+        this.queue = new TinyQueue([], function(a, b) {
+            return a.cost - b.cost;
+        });
+        const dx = this.start[0] - this.goal[0];
+        const dy = this.start[1] - this.goal[1];
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        this.queue.push({"pos":[this.start[0], this.start[1]], "cost":dist, "path":[[this.start[0], this.start[1]]]});
+        this.current = this.start;
+        this.next = [-1, -1];
+        this.numExpanded = 0;
+        this.foundPath = [];
+    }
+
+    step() {
+        // Remove first element from frontier
+        if (!this.reachedGoal) {
+            let s = this.queue.pop();
+            if (s.pos[0] == this.goal[0] && s.pos[1] == this.goal[1]) {
+                this.reachedGoal = true;
+                this.foundPath = s.path;
+                this.stepsDisp.innerHTML += ", found path has " + s.path.length + " steps";
+            }
+            // If we haven't seen this state yet with a shorter path
+            else if (!(this.visited[s.pos[0]][s.pos[1]])) {  
+                this.numExpanded++;
+                this.current = [s.pos[0], s.pos[1]];
+                // For graph search, remember 
+                if (this.rememberInput.checked) {
+                    this.visited[s.pos[0]][s.pos[1]] = true;
+                    this.frontier[s.pos[0]][s.pos[1]] = false;
+                }
+                else {
+                    // Check to see if it's still on the frontier (TODO: This is very inefficient)
+                    let stillOn = false;
+                    for (let i = 0; i < this.queue.length; i++) {
+                        if (this.queue.data[i].pos[0] == s.pos[0] && this.queue.data[i].pos[1] == s.pos[1]) {
+                            stillOn = true;
+                            break;
+                        }
+                    }
+                    if (!stillOn) {
+                        this.frontier[s.pos[0]][s.pos[1]] = false;
+                    }
+                }
+                let neighbs = this.getNeighbors(s.pos[0], s.pos[1], this.fourNeighbs.checked);
+                for (let k = 0; k < neighbs.length; k++) {
+                    let n = neighbs[k];
+                    if (!this.visited[n.pos[0]][n.pos[1]]) {
+                        let path = [];
+                        for (let k = 0; k < s.path.length; k++) {
+                            path.push([s.path[k][0], s.path[k][1]]);
+                        }
+                        path.push([n.pos[0], n.pos[1]]);
+                        this.frontier[n.pos[0]][n.pos[1]] = true;
+                        this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":n.dist, "path":path});
+                    }
+                }
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+                this.steps++;
+                this.stepsDisp.innerHTML = this.steps + " steps";
+                this.stepsDisp.innerHTML += ", " + this.queue.length + " nodes on queue";
+                this.stepsDisp.innerHTML += ", " + this.numExpanded + " nodes expanded";
+            }
+            else {
+                this.frontier[s.pos[0]][s.pos[1]] = false;
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+            }
+            this.repaint();
+        }
+        else {
+            alert("You already found the goal!");
+        }
+    }
+
+    repaint() {
+        super.repaint();
+        this.ctx.fillStyle = "green";
+        for (let i = 0; i < this.foundPath.length; i++) {
+            const p = this.foundPath[i];
+            if ((p[0] != this.start[0] || p[1] != this.start[1]) && (p[0] != this.goal[0] || p[1] != this.goal[1])) {
+                this.ctx.fillRect(p[1]*BLOCK_WIDTH, p[0]*BLOCK_WIDTH, BLOCK_WIDTH, BLOCK_WIDTH);
+            }
         }
     }
 }
