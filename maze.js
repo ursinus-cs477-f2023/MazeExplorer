@@ -521,7 +521,6 @@ class BidirectionalBFS extends BFSDFS {
     }
 
     finishMazeSetup() {
-        console.log("Finish maze setup bidirectional");
         this.frontier[this.start[0]][this.start[1]] = true; 
         this.queue = [this.start];
         this.currQueue = this.queue;
@@ -602,6 +601,7 @@ class BidirectionalBFS extends BFSDFS {
 }
 
 
+// This assumes that tinyqueue has been imported
 class UniformCost extends BFSDFS {
     /**
      * 
@@ -612,14 +612,77 @@ class UniformCost extends BFSDFS {
      */
      constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
         super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
-        this.displayGoal = true; // Always display goal
-        this.gqueue = []; // Queue for search from goal
-        this.gfrontier = []; // Need to store frontier from goal
-        this.currQueue = this.queue;
+        this.fourNeighbs.checked = false;
+        this.eightNeighbs.checked = true;
     }
 
     getNeighbors(i, j, fourNeighbors) {
-        neighbs = super.getNeighbors(i, j, fourNeighbors);
-        // TODO: Add the distance of each neighbor
+        let neighbs = super.getNeighbors(i, j, fourNeighbors);
+        // Also compute the distance of each neighbor
+        for (let k = 0; k < neighbs.length; k++) {
+            let n = neighbs[k];
+            const dx = n[0] - i;
+            const dy = n[1] - j;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            neighbs[k] = {"pos":n, "dist":dist};
+        }
+        return neighbs;
+    }
+    
+    finishMazeSetup() {
+        this.frontier[this.start[0]][this.start[1]] = true; 
+        this.visited[this.start[0]][this.start[1]] = false;
+        this.queue = new TinyQueue([], function(a, b) {
+            return a.cost - b.cost;
+        });
+        this.queue.push({"pos":[this.start[0], this.start[1]], "cost":0});
+        this.current = this.start;
+        this.next = [-1, -1];
+        this.numExpanded = 0;
+    }
+
+    step() {
+        // Remove first element from frontier
+        if (!this.reachedGoal) {
+            let s = this.queue.pop();
+            console.log(s);
+            console.log(this.visited[s.pos[0]][s.pos[1]]);
+            if (s.pos[0] == this.goal[0] && s.pos[1] == this.goal[1]) {
+                this.reachedGoal = true;
+            }
+            // If we haven't seen this state yet with a shorter path
+            else if (!(this.visited[s.pos[0]][s.pos[1]])) {  
+                this.current = [s.pos[0], s.pos[1]];
+                // For graph search, remember 
+                this.visited[s.pos[0]][s.pos[1]] = true;
+                this.frontier[s.pos[0]][s.pos[1]] = false;
+                let neighbs = this.getNeighbors(s.pos[0], s.pos[1], this.fourNeighbs.checked);
+                let cost = s.cost;
+                for (let k = 0; k < neighbs.length; k++) {
+                    let n = neighbs[k];
+                    if (!this.visited[n.pos[0]][n.pos[1]]) {
+                        this.frontier[n.pos[0]][n.pos[1]] = true;
+                        this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":cost+n.dist});
+                    }
+                }
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+                this.steps++;
+                this.stepsDisp.innerHTML = this.steps + " steps";
+                this.stepsDisp.innerHTML += ", " + this.queue.length + " nodes on queue";
+                this.stepsDisp.innerHTML += ", " + this.numExpanded + " nodes expanded";
+            }
+            else {
+                this.frontier[s.pos[0]][s.pos[1]] = false;
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+            }
+            this.repaint();
+        }
+        else {
+            alert("You already found the goal!");
+        }
     }
 }
