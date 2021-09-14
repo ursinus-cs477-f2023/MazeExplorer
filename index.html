@@ -36,6 +36,7 @@
                         <option value = "dfstreepath">DFS Tree Path Check</option>
                         <option value = "bfsgraph">BFS Graph</option>
                         <option value = "dfsgraph">DFS Graph</option>
+                        <option value = "bfsbidir">Bidirectional BFS Graph</option>
                     </select>
                 </td>
             </tr>
@@ -83,6 +84,9 @@
                 }
                 else if (e.target.value == "dfsgraph") {
                     maze = new BFSDFS("canvasContainer", image, false, false);
+                }
+                else if (e.target.value == "bfsbidir") {
+                    maze = new BidirectionalBFS("canvasContainer", image, "mazeInput", "exampleMazes");
                 }
             });
             

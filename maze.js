@@ -57,6 +57,7 @@ class Maze {
         this.ctx = null;
         this.steps = 0;
         this.reachedGoal = false;
+        this.displayGoal = false; // Whether to display the goal by default
         this.setupInput();
         if (!(image === null) && !(image === undefined)) {
             this.finalizeInput(image);
@@ -193,9 +194,20 @@ class Maze {
         this.canvas.addEventListener('touchstart', this.makeClick.bind(this));
     }
 
-    getNeighbors(i, j) {
+    /**
+     * Get the open neighboring cells to a particular location
+     * @param {int} i Row index
+     * @param {int} j Column index
+     * @param {boolean} fourNeighbors If true do left/right/up/down.  If false, do 
+     *                                left/right/up/down/diagonals for a total of 8
+     * @returns List of neighboring locations as [i, j] lists
+     */
+    getNeighbors(i, j, fourNeighbors) {
         let neighbs = [];
-        const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        let dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        if (!fourNeighbors) {
+            dirs = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+        }
         for (let k = 0; k < dirs.length; k++) {
             let i2 = i + dirs[k][0];
             let j2 = j + dirs[k][1];
@@ -243,7 +255,7 @@ class Maze {
                         this.ctx.fillStyle = "gray";
                     }
 
-                    if (i == this.goal[0] && j == this.goal[1] && this.reachedGoal) {
+                    if (i == this.goal[0] && j == this.goal[1] && (this.reachedGoal || this.displayGoal)) {
                         toDraw = true;
                         this.ctx.fillStyle = "red";
                     }
@@ -330,6 +342,29 @@ class BFSDFS extends Maze {
         this.mainContainer.appendChild(button);
         button.onclick = this.reset.bind(this);
 
+        // Neighbor type input
+        this.mainContainer.appendChild(document.createElement("hr"));
+        this.fourNeighbs = document.createElement("input");
+        this.fourNeighbs.setAttribute("type", "radio");
+        this.fourNeighbs.setAttribute("id", "fourNeighbs");
+        this.fourNeighbs.setAttribute("name", "neighbType");
+        let label = document.createElement("label");
+        this.mainContainer.appendChild(this.fourNeighbs);
+        label.setAttribute("for", "fourNeighbs");
+        label.innerHTML = "4 Neighbors";
+        this.mainContainer.appendChild(label);
+        this.eightNeighbs = document.createElement("input");
+        this.eightNeighbs.setAttribute("type", "radio");
+        this.eightNeighbs.setAttribute("id", "eightNeighbs");
+        this.eightNeighbs.setAttribute("name", "neighbType");
+        this.mainContainer.appendChild(this.eightNeighbs);
+        label = document.createElement("label");
+        label.setAttribute("for", "eightNeighbs");
+        label.innerHTML = "8 Neighbors";
+        this.mainContainer.appendChild(label);
+        this.fourNeighbs.checked = true;
+
+
         // Depth limit input
         this.depthInput = document.createElement("input");
         this.depthInput.setAttribute("type", "text");
@@ -338,7 +373,7 @@ class BFSDFS extends Maze {
         this.depthInput.addEventListener("input", function() {
             that.maxDepth = parseInt(that.depthInput.value);
         })
-        let label = document.createElement("label");
+        label = document.createElement("label");
         label.setAttribute("for", "depthInput");
         label.innerHTML = "Maximum Depth ";
         this.mainContainer.appendChild(document.createElement("hr"));
@@ -417,7 +452,7 @@ class BFSDFS extends Maze {
                         this.frontier[s.pos[0]][s.pos[1]] = false;
                     }
                 }
-                let neighbs = this.getNeighbors(s.pos[0], s.pos[1]);
+                let neighbs = this.getNeighbors(s.pos[0], s.pos[1], this.fourNeighbs.checked);
                 let depth = s.depth+1;
                 for (let k = 0; k < neighbs.length; k++) {
                     let n = neighbs[k];
@@ -465,5 +500,126 @@ class BFSDFS extends Maze {
         else {
             alert("You already found the goal!");
         }
+    }
+}
+
+
+class BidirectionalBFS extends BFSDFS {
+    /**
+     * 
+     * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
+     */
+    constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
+        super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
+        this.displayGoal = true; // Always display goal
+        this.gqueue = []; // Queue for search from goal
+        this.gfrontier = []; // Need to store frontier from goal
+        this.currQueue = this.queue;
+    }
+
+    finishMazeSetup() {
+        console.log("Finish maze setup bidirectional");
+        this.frontier[this.start[0]][this.start[1]] = true; 
+        this.queue = [this.start];
+        this.currQueue = this.queue;
+        this.gqueue = [this.goal];
+        this.current = this.start;
+        this.next = [-1, -1];
+        this.numExpanded = 0;
+        this.gfrontier = []; // Frontier to goal;
+        for (let i = 0; i < this.frontier.length; i++) {
+            this.gfrontier[i] = [];
+            for (let j = 0; j < this.frontier[i].length; j++) {
+                this.gfrontier[i][j] = false;
+            }
+        }
+        this.gfrontier[this.goal[0]][this.goal[1]] = true;
+    }
+
+    step() {
+        if (this.gfrontier.length == 0) {
+            this.finishMazeSetup(); // A patch for now...not sure why it's empty sometimes
+        }
+        // Remove first element from frontier
+        if (this.queue.length > 0 && !this.reachedGoal) {
+            let frontier = this.frontier;
+            let otherFrontier = this.gfrontier;
+            let otherQueue = this.gqueue;
+            if (this.currQueue == this.gqueue) {
+                frontier = this.gfrontier;
+                otherFrontier = this.frontier;
+                otherQueue = this.queue;
+            }
+            let s = this.currQueue.shift();
+            // Check to see if this state is on the other frontier
+            if (otherFrontier[s[0]][s[1]]) {
+                this.reachedGoal = true;
+            }
+            else {
+                this.current = [s[0], s[1]];
+                this.visited[s[0]][s[1]] = true;
+                frontier[s[0]][s[1]] = false;
+                let neighbs = this.getNeighbors(s[0], s[1], this.fourNeighbs.checked);
+                for (let k = 0; k < neighbs.length; k++) {
+                    let n = neighbs[k];
+                    if (!this.visited[n[0]][n[1]] && !frontier[n[0]][n[1]]) {
+                        frontier[n[0]][n[1]] = true;
+                        this.currQueue.push([n[0], n[1]]);
+                        this.numExpanded++;
+                    }
+                }
+                if (otherQueue.length > 0) {
+                    this.next = [otherQueue[0][0], otherQueue[0][1]];
+                }
+                // Switch queues
+                this.steps++;
+                this.currQueue = otherQueue;
+                this.stepsDisp.innerHTML = this.steps + " steps taken, " + this.queue.length + " nodes on start frontier, " + this.gqueue.length + " nodes on goal frontier, " + this.numExpanded + " nodes expanded";
+            }
+            this.repaint();
+        }
+        else {
+            alert("You already found the goal!");
+        }
+    }
+
+    repaint() {
+        super.repaint();
+        // Draw all of the nodes on the goal frontier
+        this.ctx.fillStyle = "gray";
+        for (let idx = 0; idx < this.gqueue.length; idx++) {
+            let state = this.gqueue[idx];
+            const i = state[0];
+            const j = state[1];
+            if (i != this.goal[0] || j != this.goal[1]) {
+                this.ctx.fillRect(j*BLOCK_WIDTH, i*BLOCK_WIDTH, BLOCK_WIDTH, BLOCK_WIDTH);
+            }
+        }
+    }
+}
+
+
+class UniformCost extends BFSDFS {
+    /**
+     * 
+     * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
+     */
+     constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
+        super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
+        this.displayGoal = true; // Always display goal
+        this.gqueue = []; // Queue for search from goal
+        this.gfrontier = []; // Need to store frontier from goal
+        this.currQueue = this.queue;
+    }
+
+    getNeighbors(i, j, fourNeighbors) {
+        neighbs = super.getNeighbors(i, j, fourNeighbors);
+        // TODO: Add the distance of each neighbor
     }
 }
