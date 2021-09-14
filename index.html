@@ -40,6 +40,7 @@
                         <option value = "bfsbidir">Bidirectional BFS Graph</option>
                         <option value = "uniform">Uniform Cost</option>
                         <option value = "greedy">Greedy Best First</option>
+                        <option value = "astar">A Star Search</option>
                     </select>
                 </td>
             </tr>
@@ -97,6 +98,9 @@
                 }
                 else if (e.target.value == "greedy") {
                     maze = new GreedyBestFirst("canvasContainer", image, "mazeInput", "exampleMazes");
+                }
+                else if (e.target.value == "astar") {
+                    maze = new AStar("canvasContainer", image, "mazeInput", "exampleMazes");
                 }
             });
             

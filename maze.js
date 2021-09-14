@@ -612,8 +612,6 @@ class UniformCost extends BFSDFS {
      */
      constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
         super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
-        this.fourNeighbs.checked = false;
-        this.eightNeighbs.checked = true;
     }
 
     getNeighbors(i, j, fourNeighbors) {
@@ -805,6 +803,115 @@ class GreedyBestFirst extends BFSDFS {
                         path.push([n.pos[0], n.pos[1]]);
                         this.frontier[n.pos[0]][n.pos[1]] = true;
                         this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":n.dist, "path":path});
+                    }
+                }
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+                this.steps++;
+                this.stepsDisp.innerHTML = this.steps + " steps";
+                this.stepsDisp.innerHTML += ", " + this.queue.length + " nodes on queue";
+                this.stepsDisp.innerHTML += ", " + this.numExpanded + " nodes expanded";
+            }
+            else {
+                this.frontier[s.pos[0]][s.pos[1]] = false;
+                if (this.queue.length > 0) {
+                    this.next = [this.queue.peek().pos[0], this.queue.peek().pos[1]];
+                }
+            }
+            this.repaint();
+        }
+        else {
+            alert("You already found the goal!");
+        }
+    }
+
+    repaint() {
+        super.repaint();
+        this.ctx.fillStyle = "green";
+        for (let i = 0; i < this.foundPath.length; i++) {
+            const p = this.foundPath[i];
+            if ((p[0] != this.start[0] || p[1] != this.start[1]) && (p[0] != this.goal[0] || p[1] != this.goal[1])) {
+                this.ctx.fillRect(p[1]*BLOCK_WIDTH, p[0]*BLOCK_WIDTH, BLOCK_WIDTH, BLOCK_WIDTH);
+            }
+        }
+    }
+}
+
+
+
+// This assumes that tinyqueue has been imported
+class AStar extends BFSDFS {
+    /**
+     * 
+     * @param {string} domLoc ID of DOM element in which to place this canvas
+     * @param {Image} image An image of a maze to load
+     * @param {string} mazeInputStr ID of maze input menu
+     * @param {string} exampleMazeStr ID of example maze input
+     */
+     constructor(domLoc, image, mazeInputStr, exampleMazeStr) {
+        super(domLoc, image, true, true, mazeInputStr, exampleMazeStr);
+        this.displayGoal = true; // Always display goal
+    }
+
+    getNeighbors(i, j, fourNeighbors) {
+        let neighbs = super.getNeighbors(i, j, fourNeighbors);
+        // Also compute the distance of each neighbor to the goal
+        for (let k = 0; k < neighbs.length; k++) {
+            let n = neighbs[k];
+            let dx = n[0] - this.goal[0];
+            let dy = n[1] - this.goal[1];
+            const goalDist = Math.sqrt(dx*dx + dy*dy);
+            dx = n[0] - i;
+            dy = n[1] - j;
+            const neighbDist = Math.sqrt(dx*dx + dy*dy);
+            neighbs[k] = {"pos":n, "goalDist":goalDist, "neighbDist":neighbDist};
+        }
+        return neighbs;
+    }
+    
+    finishMazeSetup() {
+        this.frontier[this.start[0]][this.start[1]] = true; 
+        this.visited[this.start[0]][this.start[1]] = false;
+        this.queue = new TinyQueue([], function(a, b) {
+            return a.cost - b.cost;
+        });
+        const dx = this.start[0] - this.goal[0];
+        const dy = this.start[1] - this.goal[1];
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        this.queue.push({"pos":[this.start[0], this.start[1]], "cost":0, "pathCost":0, "goalDist":dist, "neighbDist":0, "path":[[this.start[0], this.start[1]]]});
+        this.current = this.start;
+        this.next = [-1, -1];
+        this.numExpanded = 0;
+        this.foundPath = [];
+    }
+
+    step() {
+        // Remove first element from frontier
+        if (!this.reachedGoal) {
+            let s = this.queue.pop();
+            if (s.pos[0] == this.goal[0] && s.pos[1] == this.goal[1]) {
+                this.reachedGoal = true;
+                this.foundPath = s.path;
+                this.stepsDisp.innerHTML += ", found path has " + s.path.length + " steps";
+            }
+            // If we haven't seen this state yet with a shorter path
+            else if (!(this.visited[s.pos[0]][s.pos[1]])) {  
+                this.numExpanded++;
+                this.current = [s.pos[0], s.pos[1]];
+                this.visited[s.pos[0]][s.pos[1]] = true;
+                this.frontier[s.pos[0]][s.pos[1]] = false;
+                let neighbs = this.getNeighbors(s.pos[0], s.pos[1], this.fourNeighbs.checked);
+                for (let k = 0; k < neighbs.length; k++) {
+                    let n = neighbs[k];
+                    if (!this.visited[n.pos[0]][n.pos[1]]) {
+                        let path = [];
+                        for (let k = 0; k < s.path.length; k++) {
+                            path.push([s.path[k][0], s.path[k][1]]);
+                        }
+                        path.push([n.pos[0], n.pos[1]]);
+                        this.frontier[n.pos[0]][n.pos[1]] = true;
+                        this.queue.push({"pos":[n.pos[0], n.pos[1]], "cost":s.pathCost+n.neighbDist+n.goalDist, "pathCost":s.pathCost+n.neighbDist, "path":path});
                     }
                 }
                 if (this.queue.length > 0) {
